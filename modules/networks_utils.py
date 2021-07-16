@@ -2,10 +2,13 @@ import numpy as np
 
 import pymc3 as pm
 
+import theano
 import theano.tensor as T
 
 
 class __Activations:
+    """
+    """
     def __init__(self):
         pass
 
@@ -35,11 +38,139 @@ class __Activations:
         return T.nnet.softmax(x)
 
 
-class AbstractNNet(__Activations):
+class __Initializations:
     """
     """
     def __init__(self):
         pass
+
+    def uniform(self, shape, low=-1, high=1):
+        """
+        """
+        init = np.uniform(
+            low=low,
+            high=high,
+            size=shape
+        )
+        return init
+
+    def ones(self, shape):
+        """
+        """
+        init = np.ones(
+            shape=shape
+        )
+        return init
+
+    def gaussian(self, shape, mu=0, sigma=1):
+        """
+        """
+        init = np.random.normal(
+            loc=mu,
+            scale=sigma,
+            size=shape
+        )
+        return init
+
+    def gorlot_uniform(self, shape, shape_in, shape_out):
+        """
+        """
+        limit = np.sqrt(
+            6 / (shape_in + shape_out)
+        )
+        init = np.uniform(
+            low=-limit,
+            high=limit,
+            size=shape
+        )
+        return init
+
+    def laplace(self, shape, mu, beta):
+        """
+        """
+        init = np.random.laplace(
+            loc=mu,
+            scale=beta,
+            size=shape
+        )
+        return init
+
+
+class AbstractNNet(__Activations, __Initializations):
+    """
+    """
+    def __init__(self):
+        pass
+
+    def __dense_init(shape_in, shape_out, weight_init_func, bias_init_func):
+        """
+        """
+        floatX = theano.config.floatX
+
+        weights_init = weight_init_func(
+            shape=(shape_in, shape_out)
+        ).astype(floatX)
+
+        biases_init = bias_init_func(
+            shape=shape_out
+        )
+        return weights_init, biases_init
+
+    def __dense_weights(self, shape_in, shape_out, layer_name, prior,
+                        weights_init, biases_init, **priors_kwargs):
+        """
+        """
+        if shape_out == 1:
+            shape = (shape_in,)
+        else:
+            shape = (shape_in, shape_out)
+
+        weights = prior(
+            f'weights_{layer_name}',
+            shape=shape,
+            testval=weights_init,
+            **priors_kwargs
+        )
+        biases = prior(
+            f'biases_{layer_name}',
+            shape=shape_out,
+            testval=biases_init,
+            **priors_kwargs
+        )
+        return weights, biases
+
+    def dense_layer(self, layer_name, units, shape_in, previous_layer,
+                    weight_init_func, bias_init_func, prior, activation,
+                    **priors_kwargs):
+        """
+        """
+        activation_function = getattr(self, activation)
+        weight_init_func = getattr(self, weight_init_func)
+        bias_init_func = getattr(self, bias_init_func)
+
+        weights_init, biases_init = self.__dense_init(
+            shape_in=shape_in,
+            shape_out=units,
+            weight_init_func=weight_init_func,
+            bias_init_func=bias_init_func
+        )
+        weights, biases = self.__dense_weights(
+            shape_in=shape_in,
+            shape_out=units,
+            layer_name=layer_name,
+            prior=prior,
+            weights_init=weights_init,
+            biases_init=biases_init,
+            **priors_kwargs
+        )
+
+        layer = pm.Deterministic(
+                f'layer_{layer_name}',
+                activation_function(
+                    pm.math.dot(previous_layer, weights) + biases
+                )
+        )
+        return layer
 
     def fit(self, samples=1000, **kwargs):
         """
@@ -74,13 +205,3 @@ class AbstractNNet(__Activations):
         """
         """
         return pm.model_to_graphviz(self.model)
-
-
-def prob_log_loss(y, p):
-    """
-    """
-    y = np.array(
-        [y for i in range(p.shape[0])]
-    )
-    loss = (y*np.log(p) + (1 - y) * np.log(1 - p))
-    return -loss

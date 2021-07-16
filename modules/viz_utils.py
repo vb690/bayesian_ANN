@@ -8,7 +8,7 @@ from umap import UMAP
 
 import matplotlib.pyplot as plt
 
-from .networks_utils import prob_log_loss
+from .metrics_losses import prob_log_loss
 
 
 def visulize_bernoulli_post(traces, y):
