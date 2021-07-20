@@ -229,7 +229,7 @@ class AbstractNNet(__Activations, __Initializations):
             f'embedding_{layer_name}',
             activation_function(
                 weights
-            )
+            )[previous_layer]
         )
         return layer
 
