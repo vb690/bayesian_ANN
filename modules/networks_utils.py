@@ -47,7 +47,7 @@ class __Initializations:
     def uniform(self, shape, low=-1, high=1):
         """
         """
-        init = np.uniform(
+        init = np.random.uniform(
             low=low,
             high=high,
             size=shape
@@ -72,13 +72,18 @@ class __Initializations:
         )
         return init
 
-    def gorlot_uniform(self, shape, shape_in, shape_out):
+    def gorlot_uniform(self, shape):
         """
         """
+        if len(shape) == 1:
+            denominator = shape[0]
+        else:
+            denominator = shape[0] + shape[1]
+
         limit = np.sqrt(
-            6 / (shape_in + shape_out)
+            6 / denominator
         )
-        init = np.uniform(
+        init = np.random.uniform(
             low=-limit,
             high=limit,
             size=shape
@@ -102,19 +107,33 @@ class AbstractNNet(__Activations, __Initializations):
     def __init__(self):
         pass
 
-    def __dense_init(shape_in, shape_out, weight_init_func, bias_init_func):
+    def __dense_init(self, shape_in, shape_out, weight_init_func,
+                     bias_init_func):
         """
         """
         floatX = theano.config.floatX
+        if shape_out == 1:
+            shape = (shape_in,)
+        else:
+            shape = (shape_in, shape_out)
 
         weights_init = weight_init_func(
-            shape=(shape_in, shape_out)
+            shape=shape
         ).astype(floatX)
 
         biases_init = bias_init_func(
             shape=shape_out
         )
         return weights_init, biases_init
+
+    def __embedding_init(self, shape_in, shape_out, embedding_init_func):
+        """
+        """
+        floatX = theano.config.floatX
+        weights_init = embedding_init_func(
+            shape=(shape_in, shape_out)
+        ).astype(floatX)
+        return weights_init
 
     def __dense_weights(self, shape_in, shape_out, layer_name, prior,
                         weights_init, biases_init, **priors_kwargs):
@@ -126,18 +145,30 @@ class AbstractNNet(__Activations, __Initializations):
             shape = (shape_in, shape_out)
 
         weights = prior(
-            f'weights_{layer_name}',
+            f'dense_weights_{layer_name}',
             shape=shape,
             testval=weights_init,
             **priors_kwargs
         )
         biases = prior(
-            f'biases_{layer_name}',
+            f'dense_biases_{layer_name}',
             shape=shape_out,
             testval=biases_init,
             **priors_kwargs
         )
         return weights, biases
+
+    def __embedding_weights(self, shape_in, shape_out, layer_name, prior,
+                            embedding_init, **priors_kwargs):
+        """
+        """
+        weights = prior(
+            f'embedding_weights_{layer_name}',
+            shape=(shape_in, shape_out),
+            testval=embedding_init,
+            **priors_kwargs
+        )
+        return weights
 
     def dense_layer(self, layer_name, units, shape_in, previous_layer,
                     weight_init_func, bias_init_func, prior, activation,
@@ -165,10 +196,40 @@ class AbstractNNet(__Activations, __Initializations):
         )
 
         layer = pm.Deterministic(
-                f'layer_{layer_name}',
+                f'dense_{layer_name}',
                 activation_function(
                     pm.math.dot(previous_layer, weights) + biases
                 )
+        )
+        return layer
+
+    def embedding_layer(self, layer_name, units, shape_in, previous_layer,
+                        embedding_init_func, prior, activation,
+                        **priors_kwargs):
+        """
+        """
+        activation_function = getattr(self, activation)
+        embedding_init_func = getattr(self, embedding_init_func)
+
+        embedding_init = self.__embedding_init(
+            shape_in=shape_in,
+            shape_out=units,
+            embedding_init_func=embedding_init_func
+        )
+        weights = self.__embedding_weights(
+            shape_in=shape_in,
+            shape_out=units,
+            layer_name=layer_name,
+            prior=prior,
+            embedding_init=embedding_init,
+            **priors_kwargs
+        )
+
+        layer = pm.Deterministic(
+            f'embedding_{layer_name}',
+            activation_function(
+                weights
+            )
         )
         return layer
 
