@@ -1,4 +1,5 @@
 import pymc3 as pm
+import theano
 
 from modules.networks_utils import AbstractNNet
 
@@ -9,12 +10,13 @@ class BayesianMLP(AbstractNNet):
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
                  layers=(100, 50, 25), activation='tanh',
                  weight_init_func='gaussian', bias_init_func='gaussian',
-                 **priors_kwargs):
+                 batch_size=32, **priors_kwargs):
         self.layers = layers
         self.activation = activation
         self.shape_out = shape_out
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
+        self.batch_size = batch_size
         self.prior = prior
         self.__build(
             X=X,
@@ -28,14 +30,35 @@ class BayesianMLP(AbstractNNet):
         """
         with pm.Model() as model:
 
-            X_data = pm.Data('X_data', X)
-            y_data = pm.Data('y_data', y)
+            setattr(
+                self,
+                'X_data',
+                theano.shared(X.astype(X.dtype))
+            )
+            setattr(
+                self,
+                'y_data',
+                theano.shared(y.astype(y.dtype))
+            )
+            setattr(
+                self,
+                'map_tensor_batch',
+                {
+                    self.X_data: pm.Minibatch(X, self.batch_size),
+                    self.y_data: pm.Minibatch(y, self.batch_size)
+                }
+            )
+
+            likelyhood_model = getattr(
+                self,
+                likelyhood_model
+            )
 
             for layer_n, units in enumerate(self.layers):
 
                 if layer_n == 0:
                     shape_in = X.shape[1]
-                    layer = X_data
+                    layer = self.X_data
                 else:
                     shape_in = self.layers[layer_n - 1]
 
@@ -51,22 +74,11 @@ class BayesianMLP(AbstractNNet):
                     **priors_kwargs
                 )
 
-            theta = self.dense_layer(
-                layer_name='theta',
-                units=self.shape_out,
-                shape_in=self.layers[-1],
-                previous_layer=layer,
-                weight_init_func=self.weight_init_func,
-                bias_init_func=self.bias_init_func,
-                prior=self.prior,
-                activation=self.activation,
-                **priors_kwargs
-            )
-
             out = likelyhood_model(
-                theta=theta,
-                observed=y_data,
-                total_size=y.shape[0]
+                previous_layer=layer,
+                observed=self.y_data,
+                total_size=y.shape[0],
+                **priors_kwargs
             )
 
         setattr(self, 'model', model)
@@ -78,7 +90,7 @@ class BayesianWordEmbedding(AbstractNNet):
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
                  vocabulary_size, embedding_size=50, layers=(100, 50, 25),
                  activation='tanh', weight_init_func='gaussian',
-                 bias_init_func='gaussian', **priors_kwargs):
+                 bias_init_func='gaussian', batch_size=32, **priors_kwargs):
         self.layers = layers
         self.embedding_size = embedding_size
         self.vocabulary_size = vocabulary_size
@@ -87,6 +99,7 @@ class BayesianWordEmbedding(AbstractNNet):
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
         self.prior = prior
+        self.batch_size = batch_size
         self.__build(
             X=X,
             y=y,
@@ -99,14 +112,35 @@ class BayesianWordEmbedding(AbstractNNet):
         """
         with pm.Model() as model:
 
-            X_data = pm.Data('X_data', X)
-            y_data = pm.Data('y_data', y)
+            setattr(
+                self,
+                'X_data',
+                theano.shared(X.astype(X.dtype))
+            )
+            setattr(
+                self,
+                'y_data',
+                theano.shared(y.astype(y.dtype))
+            )
+            setattr(
+                self,
+                'map_tensor_batch',
+                {
+                    self.X_data: pm.Minibatch(X, self.batch_size),
+                    self.y_data: pm.Minibatch(y, self.batch_size)
+                }
+            )
+
+            likelyhood_model = getattr(
+                self,
+                likelyhood_model
+            )
 
             embedding = self.embedding_layer(
                 layer_name=0,
                 units=self.embedding_size,
                 shape_in=self.vocabulary_size,
-                previous_layer=X_data,
+                previous_layer=self.X_data,
                 embedding_init_func=self.weight_init_func,
                 prior=self.prior,
                 activation=self.activation,
@@ -138,21 +172,9 @@ class BayesianWordEmbedding(AbstractNNet):
                     **priors_kwargs
                 )
 
-            theta = self.dense_layer(
-                layer_name='theta',
-                units=self.shape_out,
-                shape_in=self.layers[-1],
-                previous_layer=layer,
-                weight_init_func=self.weight_init_func,
-                bias_init_func=self.bias_init_func,
-                prior=self.prior,
-                activation=self.activation,
-                **priors_kwargs
-            )
-
             out = likelyhood_model(
-                theta=theta,
-                observed=y_data,
+                previous_layer=layer,
+                observed=self.y_data,
                 total_size=y.shape[0]
             )
 

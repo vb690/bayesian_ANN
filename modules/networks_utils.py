@@ -6,6 +6,147 @@ import theano
 import theano.tensor as T
 
 
+class LikelyhoodModels:
+
+    def __init__(self):
+        """
+        """
+        pass
+
+    def gaussian_lk(self, previous_layer, observed, total_size, beta=25,
+                    **priors_kwargs):
+        """
+        """
+        with pm.Model() as lk_model:
+
+            mu = self.dense_layer(
+                layer_name='mu',
+                units=self.shape_out,
+                shape_in=self.layers[-1],
+                previous_layer=previous_layer,
+                weight_init_func=self.weight_init_func,
+                bias_init_func=self.bias_init_func,
+                prior=self.prior,
+                activation='linear',
+                **priors_kwargs
+            )
+
+            sd = pm.HalfCauchy(
+                name='sigma',
+                beta=50
+            )
+
+            out = pm.Normal(
+                'y',
+                mu=mu,
+                sd=sd,
+                observed=observed,
+                total_size=total_size,
+            )
+
+        return lk_model
+
+    def student_lk(self, previous_layer, observed, total_size, beta_cauchy=25,
+                   alpha_gamma=2, beta_gamma=0.1, **priors_kwargs):
+        """
+        """
+        with pm.Model() as lk_model:
+
+            mu = self.dense_layer(
+                layer_name='mu',
+                units=self.shape_out,
+                shape_in=self.layers[-1],
+                previous_layer=previous_layer,
+                weight_init_func=self.weight_init_func,
+                bias_init_func=self.bias_init_func,
+                prior=self.prior,
+                activation='linear',
+                **priors_kwargs
+            )
+            sd = pm.HalfCauchy(
+                name='sigma',
+                beta=50
+            )
+            nu = pm.Gamma(
+                'nu',
+                alpha=alpha_gamma,
+                beta=beta_gamma
+            )
+
+            out = pm.StudentT(
+                'y',
+                mu=mu,
+                sd=sd,
+                nu=nu,
+                observed=observed,
+                total_size=total_size,
+            )
+
+        return lk_model
+
+    def categorical_lk(self, previous_layer, observed, total_size,
+                       **priors_kwargs):
+        """
+        """
+        with pm.Model() as lk_model:
+
+            theta = self.dense_layer(
+                layer_name='theta',
+                units=self.shape_out,
+                shape_in=self.layers[-1],
+                previous_layer=previous_layer,
+                weight_init_func=self.weight_init_func,
+                bias_init_func=self.bias_init_func,
+                prior=self.prior,
+                activation='linear',
+                **priors_kwargs
+            )
+            p = pm.Deterministic(
+                'p',
+                T.nnet.softmax(theta)
+            )
+
+            out = pm.Categorical(
+                'y',
+                p=p,
+                observed=observed,
+                total_size=total_size,
+            )
+
+        return lk_model
+
+    def bernoulli_lk(self, previous_layer, observed, total_size,
+                     **priors_kwargs):
+        """
+        """
+        with pm.Model() as lk_model:
+
+            theta = self.dense_layer(
+                layer_name='theta',
+                units=self.shape_out,
+                shape_in=self.layers[-1],
+                previous_layer=previous_layer,
+                weight_init_func=self.weight_init_func,
+                bias_init_func=self.bias_init_func,
+                prior=self.prior,
+                activation='linear',
+                **priors_kwargs
+            )
+            p = pm.Deterministic(
+                'p',
+                T.nnet.sigmoid(theta)
+            )
+
+            out = pm.Bernoulli(
+                'y',
+                p=p,
+                observed=observed,
+                total_size=total_size,
+            )
+
+        return lk_model
+
+
 class __Activations:
     """
     """
@@ -36,6 +177,16 @@ class __Activations:
         """Wrapper on Theano softmax function.
         """
         return T.nnet.softmax(x)
+
+    def log(self, x):
+        """Wrapper on pymc3 log function.
+        """
+        return pm.math.log(x)
+
+    def exp(self, x):
+        """Wrapper on numpy exp function.
+        """
+        return np.exp(x)
 
 
 class __Initializations:
@@ -101,7 +252,7 @@ class __Initializations:
         return init
 
 
-class AbstractNNet(__Activations, __Initializations):
+class AbstractNNet(__Activations, __Initializations, LikelyhoodModels):
     """
     """
     def __init__(self):
@@ -238,7 +389,10 @@ class AbstractNNet(__Activations, __Initializations):
         """
         with self.model:
 
-            approx = pm.fit(**kwargs)
+            approx = pm.fit(
+                more_replacements=self.map_tensor_batch,
+                **kwargs
+            )
 
         trace = approx.sample(samples)
         setattr(self, 'trace', trace)
@@ -249,12 +403,9 @@ class AbstractNNet(__Activations, __Initializations):
         """
         with self.model:
 
-            pm.set_data(
-                {
-                    'X_data': X,
-                    'y_data': y
-                }
-            )
+            self.X_data.set_value(X)
+            self.y_data.set_value(y)
+
             post_pred = pm.sample_posterior_predictive(
                 self.trace,
                 samples=samples,
