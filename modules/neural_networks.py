@@ -2,6 +2,7 @@ import pymc3 as pm
 import theano
 
 from modules.networks_utils import AbstractNNet
+from modules.layers import Dense
 
 
 class BayesianMLP(AbstractNNet):
