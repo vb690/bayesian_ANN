@@ -1,4 +1,5 @@
 import pymc3 as pm
+import theano.tensor as T
 
 from .layers import Dense
 
@@ -39,23 +40,20 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def student_lk(self, previous_layer, observed, total_size, beta_cauchy=25,
-                   alpha_gamma=2, beta_gamma=0.1, **priors_kwargs):
+    def student_lk(self, input_tensor, out_shape, observed, total_size, prior,
+                   beta_cauchy=25, alpha_gamma=2, beta_gamma=0.1,
+                   **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
-            mu = self.dense_layer(
+            mu = Dense(
+                units=out_shape,
                 layer_name='mu',
-                units=self.shape_out,
-                shape_in=self.layers[-1],
-                previous_layer=previous_layer,
-                weight_init_func=self.weight_init_func,
-                bias_init_func=self.bias_init_func,
-                prior=self.prior,
+                prior=prior,
                 activation='linear',
                 **priors_kwargs
-            )
+            )(input_tensor)
             sd = pm.HalfCauchy(
                 name='sigma',
                 beta=50
@@ -77,23 +75,19 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def categorical_lk(self, previous_layer, observed, total_size,
-                       **priors_kwargs):
+    def categorical_lk(self, input_tensor, out_shape, observed, total_size,
+                       prior, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
-            theta = self.dense_layer(
+            theta = Dense(
+                units=out_shape,
                 layer_name='theta',
-                units=self.shape_out,
-                shape_in=self.layers[-1],
-                previous_layer=previous_layer,
-                weight_init_func=self.weight_init_func,
-                bias_init_func=self.bias_init_func,
-                prior=self.prior,
+                prior=prior,
                 activation='linear',
                 **priors_kwargs
-            )
+            )(input_tensor)
             p = pm.Deterministic(
                 'p',
                 T.nnet.softmax(theta)
@@ -108,23 +102,19 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def bernoulli_lk(self, previous_layer, observed, total_size,
-                     **priors_kwargs):
+    def bernoulli_lk(self, input_tensor, out_shape, observed, total_size,
+                     prior, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
-            theta = self.dense_layer(
+            theta = Dense(
+                units=out_shape,
                 layer_name='theta',
-                units=self.shape_out,
-                shape_in=self.layers[-1],
-                previous_layer=previous_layer,
-                weight_init_func=self.weight_init_func,
-                bias_init_func=self.bias_init_func,
-                prior=self.prior,
+                prior=prior,
                 activation='linear',
                 **priors_kwargs
-            )
+            )(input_tensor)
             p = pm.Deterministic(
                 'p',
                 T.nnet.sigmoid(theta)
