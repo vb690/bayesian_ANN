@@ -1,11 +1,58 @@
 import pymc3 as pm
 import theano
 
-from modules.networks_utils import AbstractNNet
 from modules.layers import Dense
+from .likelyhood_models import LikelyhoodModels
 
 
-class BayesianMLP(AbstractNNet):
+class __AbstractNNet(LikelyhoodModels):
+    """
+    """
+    def __init__(self):
+        pass
+
+    def fit(self, samples=1000, **kwargs):
+        """
+        """
+        with self.model:
+
+            approx = pm.fit(
+                more_replacements=self.map_tensor_batch,
+                **kwargs
+            )
+
+        trace = approx.sample(samples)
+        setattr(self, 'trace', trace)
+        return None
+
+    def predict(self, X, y, var_names, samples=1000):
+        """
+        """
+        with self.model:
+
+            self.X_data.set_value(X)
+            self.y_data.set_value(y)
+
+            post_pred = pm.sample_posterior_predictive(
+                self.trace,
+                samples=samples,
+                var_names=var_names
+            )
+        return post_pred
+
+    def show_graph(self):
+        """
+        """
+        return pm.model_to_graphviz(self.model)
+
+    def debug(self):
+        """
+        """
+        print(self.model.check_test_point())
+        return pm.model_to_graphviz(self.model)
+
+
+class BayesianMLP(__AbstractNNet):
     """
     """
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
@@ -19,14 +66,15 @@ class BayesianMLP(AbstractNNet):
         self.bias_init_func = bias_init_func
         self.batch_size = batch_size
         self.prior = prior
-        self.__build(
+        self.priors_kwargs = priors_kwargs
+        self.__build_graph(
             X=X,
             y=y,
             likelyhood_model=likelyhood_model,
             **priors_kwargs
         )
 
-    def __build(self, X, y, likelyhood_model, **priors_kwargs):
+    def __build_graph(self, X, y, likelyhood_model, **priors_kwargs):
         """
         """
         with pm.Model() as model:
@@ -55,37 +103,34 @@ class BayesianMLP(AbstractNNet):
                 likelyhood_model
             )
 
+            input_tensor = self.X_data
+            shape_in = X.shape[1]
             for layer_n, units in enumerate(self.layers):
 
-                if layer_n == 0:
-                    shape_in = X.shape[1]
-                    layer = self.X_data
-                else:
-                    shape_in = self.layers[layer_n - 1]
-
-                layer = self.dense_layer(
-                    layer_name=layer_n,
-                    units=units,
+                input_tensor = Dense(
                     shape_in=shape_in,
-                    previous_layer=layer,
-                    weight_init_func=self.weight_init_func,
-                    bias_init_func=self.bias_init_func,
+                    units=units,
+                    layer_name=layer_n,
                     prior=self.prior,
                     activation=self.activation,
-                    **priors_kwargs
-                )
+                    **self.priors_kwargs
+                )(input_tensor)
+                shape_in = units
 
             out = likelyhood_model(
-                previous_layer=layer,
+                shape_in=self.layers[-1],
+                input_tensor=input_tensor,
+                out_shape=self.shape_out,
                 observed=self.y_data,
                 total_size=y.shape[0],
-                **priors_kwargs
+                prior=self.prior,
+                **self.priors_kwargs
             )
 
         setattr(self, 'model', model)
 
 
-class BayesianWordEmbedding(AbstractNNet):
+class BayesianWordEmbedding(__AbstractNNet):
     """
     """
     def __init__(self, X, y, shape_out, likelyhood_model, prior,

@@ -11,13 +11,14 @@ class LikelyhoodModels:
         """
         pass
 
-    def gaussian_lk(self, input_tensor, out_shape, observed, total_size, prior,
-                    beta=25, **priors_kwargs):
+    def gaussian_lk(self, shape_in, input_tensor, out_shape, observed,
+                    total_size, prior, beta=25, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
             mu = Dense(
+                shape_in=shape_in,
                 units=out_shape,
                 layer_name='mu',
                 prior=prior,
@@ -40,14 +41,15 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def student_lk(self, input_tensor, out_shape, observed, total_size, prior,
-                   beta_cauchy=25, alpha_gamma=2, beta_gamma=0.1,
-                   **priors_kwargs):
+    def student_lk(self, shape_in, input_tensor, out_shape, observed,
+                   total_size, prior, beta_cauchy=25, alpha_gamma=2,
+                   beta_gamma=0.1, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
             mu = Dense(
+                shape_in=shape_in,
                 units=out_shape,
                 layer_name='mu',
                 prior=prior,
@@ -75,13 +77,14 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def categorical_lk(self, input_tensor, out_shape, observed, total_size,
-                       prior, **priors_kwargs):
+    def categorical_lk(self, shape_in, input_tensor, out_shape, observed,
+                       total_size, prior, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
             theta = Dense(
+                shape_in=shape_in,
                 units=out_shape,
                 layer_name='theta',
                 prior=prior,
@@ -102,13 +105,14 @@ class LikelyhoodModels:
 
         return lk_model
 
-    def bernoulli_lk(self, input_tensor, out_shape, observed, total_size,
-                     prior, **priors_kwargs):
+    def bernoulli_lk(self, shape_in, input_tensor, out_shape, observed,
+                     total_size, prior, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
 
             theta = Dense(
+                shape_in=shape_in,
                 units=out_shape,
                 layer_name='theta',
                 prior=prior,
