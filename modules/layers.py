@@ -273,5 +273,38 @@ class LSTM(_AbstractLayer):
             self.__LSTM_init()
         )
 
-        h = tt.zeros_like(input_tensor.shape[0], self.units)
+        def cell_op(input_tensor, h, c, fw, fb, iw, ib, ow, ob, cw, cb):
+            """
+            """
+            fz = pm.math.stack(input_tensor, h, axis=0)
+            iz = theano.clone(fz)
+            cz = theano.clone(fz)
+            oz = theano.clone(fz)
+
+            # forget
+            forget_gate = pm.math.sigmoid(
+                pm.dot(fz, fw) + fb
+            )
+            c *= forget_gate
+
+            # input
+            input_gate_1 = pm.math.sigmoid(
+                pm.dot(iz, iw) + ib
+            )
+            input_gate_2 = pm.math.tanh(
+                pm.dot(cz, cw) + cb
+            )
+            input_cell = input_gate_1 * input_gate_2
+            c += input_cell
+
+            # output
+            output_gate = pm.math.sigmoid(
+                pm.dot(oz, ow) + ob
+            )
+            co = pm.math.tanh(theano.clone(c))
+            h = output_gate * co
+
+            return h, z
+
+        h = pm(input_tensor.shape[0], self.units)
         c = tt.zeros_like(input_tensor.shape[0], self.units)

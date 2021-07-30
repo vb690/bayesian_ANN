@@ -7,6 +7,7 @@ from sklearn.calibration import calibration_curve
 from umap import UMAP
 
 import matplotlib.pyplot as plt
+import matplotlib
 
 from .metrics_losses import prob_log_loss
 
@@ -149,16 +150,28 @@ def visualize_embedding(embedding, y, **kwargs):
             **kwargs
         ).fit_transform(embedding[index, :, :])
 
-        ax.scatter(
-            reduction[:, 0],
-            reduction[:, 1],
-            s=5,
-            c=y
-        )
+        for y_unique in np.unique(y):
+
+            y_idx = np.argwhere(y == y_unique)
+            cmap = matplotlib.cm.get_cmap('tab10')
+
+            ax.scatter(
+                reduction[y_idx, 0],
+                reduction[y_idx, 1],
+                s=5,
+                color=cmap(y_unique),
+                label=f'Digit {y_unique}'
+            )
         ax.set_yticks([])
         ax.set_xticks([])
         ax.set_title(f'Embedding Sample {index}')
 
     plt.tight_layout()
+    fig.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12)
+    axs.flatten()[-3].legend(
+        loc='upper center',
+        bbox_to_anchor=(0.5, -0.12),
+        ncol=5
+    )
     plt.show()
     return None
