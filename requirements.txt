@@ -2,5 +2,5 @@ numpy
 scipy
 sklearn
 pymc3
-umap
+umap-learn
 matplotlib
