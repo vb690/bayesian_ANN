@@ -98,10 +98,11 @@ class BayesianMLP(__AbstractNNet):
                 }
             )
 
-            likelyhood_model = getattr(
-                self,
-                likelyhood_model
-            )
+            if isinstance(likelyhood_model, str):
+                likelyhood_model = getattr(
+                    self,
+                    likelyhood_model
+                )
 
             input_tensor = self.X_data
             shape_in = X.shape[1]
@@ -177,10 +178,11 @@ class BayesianWordEmbedding(__AbstractNNet):
                 }
             )
 
-            likelyhood_model = getattr(
-                self,
-                likelyhood_model
-            )
+            if isinstance(likelyhood_model, str):
+                likelyhood_model = getattr(
+                    self,
+                    likelyhood_model
+                )
 
             embedding = self.embedding_layer(
                 layer_name=0,

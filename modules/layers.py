@@ -304,7 +304,31 @@ class LSTM(_AbstractLayer):
             co = pm.math.tanh(theano.clone(c))
             h = output_gate * co
 
-            return h, z
+            return h, c
 
-        h = pm(input_tensor.shape[0], self.units)
-        c = tt.zeros_like(input_tensor.shape[0], self.units)
+        h = pm.Deterministic(
+            'h',
+            tt.zeros_like(input_tensor.shape[0], self.units)
+        )
+        c = pm.Deterministic(
+            'c',
+            tt.zeros_like(input_tensor.shape[0], self.units)
+        )
+
+        for i in range(self.sequence_len):
+
+            h, c, = cell_op(
+                input_tensor[:, i, :],
+                h=h,
+                c=c,
+                fw=fw,
+                fb=fb,
+                iw=iw,
+                ib=ib,
+                ow=ow,
+                ob=ob,
+                cw=cw,
+                cb=cb
+            )
+
+        return h, c
