@@ -1,7 +1,7 @@
 import pymc3 as pm
 import theano
 
-from modules.layers import Dense
+from modules.layers import Dense, Embedding
 from .likelyhood_models import LikelyhoodModels
 
 
@@ -104,23 +104,23 @@ class BayesianMLP(__AbstractNNet):
                     likelyhood_model
                 )
 
-            input_tensor = self.X_data
+            dense = self.X_data
             shape_in = X.shape[1]
             for layer_n, units in enumerate(self.layers):
 
-                input_tensor = Dense(
+                dense = Dense(
                     shape_in=shape_in,
                     units=units,
                     layer_name=layer_n,
                     prior=self.prior,
                     activation=self.activation,
                     **self.priors_kwargs
-                )(input_tensor)
+                )(dense)
                 shape_in = units
 
             out = likelyhood_model(
                 shape_in=self.layers[-1],
-                input_tensor=input_tensor,
+                input_tensor=dense,
                 out_shape=self.shape_out,
                 observed=self.y_data,
                 total_size=y.shape[0],
@@ -145,16 +145,17 @@ class BayesianWordEmbedding(__AbstractNNet):
         self.shape_out = shape_out
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
-        self.prior = prior
         self.batch_size = batch_size
-        self.__build(
+        self.prior = prior
+        self.priors_kwargs = priors_kwargs
+        self.__build_graph(
             X=X,
             y=y,
             likelyhood_model=likelyhood_model,
-            **priors_kwargs
+            **self.priors_kwargs
         )
 
-    def __build(self, X, y, likelyhood_model, **priors_kwargs):
+    def __build_graph(self, X, y, likelyhood_model, **priors_kwargs):
         """
         """
         with pm.Model() as model:
@@ -184,16 +185,13 @@ class BayesianWordEmbedding(__AbstractNNet):
                     likelyhood_model
                 )
 
-            embedding = self.embedding_layer(
-                layer_name=0,
+            embedding = Embedding(
+                vocabulary_size=self.vocabulary_size,
                 units=self.embedding_size,
-                shape_in=self.vocabulary_size,
-                previous_layer=self.X_data,
-                embedding_init_func=self.weight_init_func,
+                layer_name=0,
                 prior=self.prior,
-                activation=self.activation,
-                **priors_kwargs
-            )
+                **self.priors_kwargs
+            )(self.X_data)
 
             embedding = pm.Deterministic(
                 'flatten',
@@ -204,26 +202,27 @@ class BayesianWordEmbedding(__AbstractNNet):
 
                 if layer_n == 0:
                     shape_in = X.shape[1] * self.embedding_size
-                    layer = embedding
+                    dense = embedding
                 else:
                     shape_in = self.layers[layer_n - 1]
 
-                layer = self.dense_layer(
-                    layer_name=layer_n,
-                    units=units,
+                dense = Dense(
                     shape_in=shape_in,
-                    previous_layer=layer,
-                    weight_init_func=self.weight_init_func,
-                    bias_init_func=self.bias_init_func,
+                    units=units,
+                    layer_name=layer_n,
                     prior=self.prior,
                     activation=self.activation,
-                    **priors_kwargs
-                )
+                    **self.priors_kwargs
+                )(dense)
 
             out = likelyhood_model(
-                previous_layer=layer,
+                shape_in=self.layers[-1],
+                input_tensor=dense,
+                out_shape=self.shape_out,
                 observed=self.y_data,
-                total_size=y.shape[0]
+                total_size=y.shape[0],
+                prior=self.prior,
+                **self.priors_kwargs
             )
 
         setattr(self, 'model', model)

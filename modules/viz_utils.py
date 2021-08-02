@@ -4,7 +4,8 @@ from scipy.stats import sem
 
 from sklearn.calibration import calibration_curve
 
-from umap import UMAP
+import umap
+import umap.aligned_umap
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -83,7 +84,7 @@ def visulize_bernoulli_post(traces, y):
     )
     axs[2].set_xlabel('Mean Estimated p')
     axs[2].set_ylabel('Fraction Positives')
-    axs[2].set_title('Posterior Predictive Check')
+    axs[2].set_title('Calibration Curve')
 
     plt.tight_layout()
     plt.show()
@@ -143,12 +144,16 @@ def visualize_embedding(embedding, y, **kwargs):
                 [i for i in range(embedding.shape[0])],
                 25
     )
-    for index, ax in zip(sampled_embedding, axs.flatten()):
-
-        reduction = UMAP(
-            n_components=2,
-            **kwargs
-        ).fit_transform(embedding[index, :, :])
+    embeddings = [embedding[index, :, :] for index in sampled_embedding]
+    relationships = [
+        {i: i for i in range(embedding.shape[1])}
+        for relationship in range(len(embeddings) - 1)
+    ]
+    reductions = umap.AlignedUMAP(**kwargs).fit_transform(
+        embeddings,
+        relations=relationships
+    )
+    for red, ax, sample in zip(reductions, axs.flatten(), sampled_embedding):
 
         for y_unique in np.unique(y):
 
@@ -156,15 +161,15 @@ def visualize_embedding(embedding, y, **kwargs):
             cmap = matplotlib.cm.get_cmap('tab10')
 
             ax.scatter(
-                reduction[y_idx, 0],
-                reduction[y_idx, 1],
+                red[y_idx, 0],
+                red[y_idx, 1],
                 s=5,
                 color=cmap(y_unique),
                 label=f'Digit {y_unique}'
             )
         ax.set_yticks([])
         ax.set_xticks([])
-        ax.set_title(f'Embedding Sample {index}')
+        ax.set_title(f'Embedding Sample {sample}')
 
     plt.tight_layout()
     fig.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12)

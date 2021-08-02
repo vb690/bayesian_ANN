@@ -42,7 +42,6 @@ class Dense(_AbstractLayer):
         self.weight_init_func = getattr(self, weight_init_func)
         self.bias_init_func = getattr(self, bias_init_func)
         self.activation = getattr(self, activation)
-        print(activation)
         self.prior = prior
         self.priors_kwargs = priors_kwargs
 
@@ -105,10 +104,12 @@ class Dense(_AbstractLayer):
 class Embedding(_AbstractLayer):
     """
     """
-    def __init__(self, units, layer_name, prior, activation='sigmoid',
-                 embedding_init_func='gaussian', **priors_kwargs):
+    def __init__(self, vocabulary_size, units, layer_name, prior,
+                 activation='sigmoid', embedding_init_func='gaussian',
+                 **priors_kwargs):
         """
         """
+        self.vocabulary_size = vocabulary_size
         self.units = units
         self.layer_name = layer_name
         self.embedding_init_func = getattr(self, embedding_init_func)
@@ -116,22 +117,22 @@ class Embedding(_AbstractLayer):
         self.prior = prior
         self.priors_kwargs = priors_kwargs
 
-    def __embedding_init(self, shape_in):
+    def __embedding_init(self):
         """
         """
         floatX = theano.config.floatX
         weights_init = self.embedding_init_func(
-            shape=(shape_in, self.units)
+            shape=(self.vocabulary_size, self.units)
         ).astype(floatX)
         return weights_init
 
-    def __embedding_weights(self, shape_in, embedding_init):
+    def __embedding_weights(self, weights_init):
         """
         """
         weights = self.prior(
             f'embedding_weights_{self.layer_name}',
-            shape=(shape_in, self.units),
-            testval=embedding_init,
+            shape=(self.vocabulary_size, self.units),
+            testval=weights_init,
             **self.priors_kwargs
         )
         return weights
@@ -139,20 +140,14 @@ class Embedding(_AbstractLayer):
     def build(self, input_tensor):
         """
         """
-        shape_in = input_tensor.shape.eval()[1]
-        embedding_init = self.__embedding_init(
-            shape_in=shape_in
-        )
         weights = self.__embedding_weights(
-            shape_in=shape_in,
-            embedding_init=embedding_init
+            self.__embedding_init()
         )
-
         output_tensor = pm.Deterministic(
             f'embedding_{self.layer_name}',
             self.activation(
                 weights
-            )[self.input_tensor]
+            )[input_tensor]
         )
         return output_tensor
 
@@ -160,10 +155,12 @@ class Embedding(_AbstractLayer):
 class LSTM(_AbstractLayer):
     """
     """
-    def __init__(self, units, layer_name, prior,
+    def __init__(self, shape_in, units, layer_name, prior,
                  weight_init_func='gaussian', bias_init_func='gaussian',
                  **priors_kwargs):
+        self.shape_in = shape_in
         self.units = units
+        self.shape_z = shape_in + units
         self.layer_name = layer_name
         self.weight_init_func = getattr(self, weight_init_func)
         self.bias_init_func = getattr(self, bias_init_func)
@@ -203,8 +200,8 @@ class LSTM(_AbstractLayer):
             shape=self.units
         )
 
-        return fw_init, fb_init, iw_init, ib_init,
-        ow_init, ob_init, cw_init, cb_init
+        return fw_init, fb_init, iw_init, ib_init, \
+            ow_init, ob_init, cw_init, cb_init
 
     def __LSTM_weights(self, *args):
         """
@@ -269,6 +266,19 @@ class LSTM(_AbstractLayer):
     def build(self, input_tensor):
         """
         """
+        h = pm.Normal(
+            'h',
+            mu=0,
+            sigma=1,
+            shape=(5, self.units)
+        )
+        c = pm.Normal(
+            'c',
+            mu=0,
+            sigma=1,
+            shape=(5, self.units)
+        )
+
         fw, fb, iw, ib, ow, ob, cw, cb = self.__LSTM_weights(
             self.__LSTM_init()
         )
@@ -306,29 +316,23 @@ class LSTM(_AbstractLayer):
 
             return h, c
 
-        h = pm.Deterministic(
-            'h',
-            tt.zeros_like(input_tensor.shape[0], self.units)
-        )
-        c = pm.Deterministic(
-            'c',
-            tt.zeros_like(input_tensor.shape[0], self.units)
-        )
+        for i in range(10):
 
-        for i in range(self.sequence_len):
-
-            h, c, = cell_op(
-                input_tensor[:, i, :],
-                h=h,
-                c=c,
-                fw=fw,
-                fb=fb,
-                iw=iw,
-                ib=ib,
-                ow=ow,
-                ob=ob,
-                cw=cw,
-                cb=cb
+            h, c, = pm.Deterministic(
+                f'state_{i}',
+                cell_op(
+                    input_tensor[:, i, :],
+                    h=h,
+                    c=c,
+                    fw=fw,
+                    fb=fb,
+                    iw=iw,
+                    ib=ib,
+                    ow=ow,
+                    ob=ob,
+                    cw=cw,
+                    cb=cb
+                )
             )
 
         return h, c
