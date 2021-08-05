@@ -25,7 +25,12 @@ class __AbstractNNet(LikelyhoodModels):
         setattr(self, 'trace', trace)
         return None
 
-    def predict(self, X, y, var_names, samples=1000):
+    def get_traces(self):
+        """
+        """
+        return self.trace
+
+    def predict(self, X, y, var_names=None, samples=1000):
         """
         """
         with self.model:

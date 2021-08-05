@@ -36,7 +36,7 @@ class Dense(_AbstractLayer):
                  bias_init_func='gaussian', **priors_kwargs):
         """
         """
-        self.shape_in = shape_in
+        self.shape = (shape_in, units) if units > 1 else (shape_in, )
         self.units = units
         self.layer_name = layer_name
         self.weight_init_func = getattr(self, weight_init_func)
@@ -49,13 +49,9 @@ class Dense(_AbstractLayer):
         """
         """
         floatX = theano.config.floatX
-        if self.units == 1:
-            shape = (self.shape_in,)
-        else:
-            shape = (self.shape_in, self.units)
 
         weights_init = self.weight_init_func(
-            shape=shape
+            shape=self.shape
         ).astype(floatX)
 
         biases_init = self.bias_init_func(
@@ -67,14 +63,10 @@ class Dense(_AbstractLayer):
         """
         """
         weights_init, biases_init = args[0]
-        if self.units == 1:
-            shape = (self.shape_in,)
-        else:
-            shape = (self.shape_in, self.units)
 
         weights = self.prior(
             f'dense_weights_{self.layer_name}',
-            shape=shape,
+            shape=self.shape,
             testval=weights_init,
             **self.priors_kwargs
         )
@@ -155,12 +147,20 @@ class Embedding(_AbstractLayer):
 class LSTM(_AbstractLayer):
     """
     """
-    def __init__(self, shape_in, units, layer_name, prior,
-                 weight_init_func='gaussian', bias_init_func='gaussian',
-                 **priors_kwargs):
-        self.shape_in = shape_in
+    def __init__(self, shapes, units, layer_name, prior,
+                 return_sequences=False, weight_init_func='gaussian',
+                 bias_init_func='gaussian', **priors_kwargs):
+        """
+        """
         self.units = units
-        self.shape_z = shape_in + units
+        self.return_sequences = return_sequences
+
+        # ugly shpe specification
+        self.shape_batch = shapes[0]
+        self.shape_seq = shapes[1]
+        self.shape_feat = shapes[2]
+        self.shape_z = self.shape_feat + units
+
         self.layer_name = layer_name
         self.weight_init_func = getattr(self, weight_init_func)
         self.bias_init_func = getattr(self, bias_init_func)
@@ -266,61 +266,62 @@ class LSTM(_AbstractLayer):
     def build(self, input_tensor):
         """
         """
+        hidden_states = []
+        cell_states = []
+
         h = pm.Normal(
             'h',
             mu=0,
             sigma=1,
-            shape=(5, self.units)
+            shape=(self.shape_batch, self.units)
         )
         c = pm.Normal(
             'c',
             mu=0,
             sigma=1,
-            shape=(5, self.units)
+            shape=(self.shape_batch, self.units)
         )
 
         fw, fb, iw, ib, ow, ob, cw, cb = self.__LSTM_weights(
             self.__LSTM_init()
         )
 
-        def cell_op(input_tensor, h, c, fw, fb, iw, ib, ow, ob, cw, cb):
+        def cell_ops(input_tensor, h, c, fw, fb, iw, ib, ow, ob, cw, cb):
             """
             """
-            fz = pm.math.stack(input_tensor, h, axis=0)
+            fz = tt.concatenate([input_tensor, h], axis=-1)
             iz = theano.clone(fz)
             cz = theano.clone(fz)
             oz = theano.clone(fz)
 
             # forget
             forget_gate = pm.math.sigmoid(
-                pm.dot(fz, fw) + fb
+                pm.math.dot(fz, fw) + fb
             )
             c *= forget_gate
 
             # input
             input_gate_1 = pm.math.sigmoid(
-                pm.dot(iz, iw) + ib
+                pm.math.dot(iz, iw) + ib
             )
             input_gate_2 = pm.math.tanh(
-                pm.dot(cz, cw) + cb
+                pm.math.dot(cz, cw) + cb
             )
             input_cell = input_gate_1 * input_gate_2
             c += input_cell
 
             # output
             output_gate = pm.math.sigmoid(
-                pm.dot(oz, ow) + ob
+                pm.math.dot(oz, ow) + ob
             )
             co = pm.math.tanh(theano.clone(c))
             h = output_gate * co
 
             return h, c
 
-        for i in range(10):
+        for i in range(self.shape_seq):
 
-            h, c, = pm.Deterministic(
-                f'state_{i}',
-                cell_op(
+            h, c, = cell_ops(
                     input_tensor[:, i, :],
                     h=h,
                     c=c,
@@ -333,6 +334,13 @@ class LSTM(_AbstractLayer):
                     cw=cw,
                     cb=cb
                 )
-            )
 
-        return h, c
+            hidden_states.append(h)
+            cell_states.append(c)
+
+        if self.return_sequences:
+            hidden_states = tt.concatenate(hidden_states, axis=-1)
+            cell_states = tt.concatenate(cell_states, axis=-1)
+            return hidden_states, cell_states
+        else:
+            return hidden_states[-1], cell_states[-1]
