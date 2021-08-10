@@ -9,6 +9,7 @@ Small project for exploring the usage of bayesian artificial neural networks imp
 
     * Dense Layer
     * Embedding Layer
+    * Vanilla RNN Layer
     * LSTM Layer
 
 2. Flexible pirors specification.
