@@ -144,6 +144,108 @@ class Embedding(_AbstractLayer):
         return output_tensor
 
 
+class RNN(_AbstractLayer):
+    """
+    """
+    def __init__(self, shapes, units, layer_name, prior,
+                 return_sequences=False, weight_init_func='gaussian',
+                 bias_init_func='gaussian', **priors_kwargs):
+        """
+        """
+        self.units = units
+        self.return_sequences = return_sequences
+
+        # ugly shpe specification
+        self.shape_batch = shapes[0]
+        self.shape_seq = shapes[1]
+        self.shape_feat = shapes[2]
+
+        self.layer_name = layer_name
+        self.weight_init_func = getattr(self, weight_init_func)
+        self.bias_init_func = getattr(self, bias_init_func)
+        self.prior = prior
+        self.priors_kwargs = priors_kwargs
+
+    def __RNN_init(self):
+        """
+        """
+        floatX = theano.config.floatX
+
+        iw_init = self.weight_init_func(
+            shape=(self.shape_feat, self.units)
+        ).astype(floatX)
+        hw_init = self.weight_init_func(
+            shape=(self.units, self.units)
+        ).astype(floatX)
+
+        hb_init = self.bias_init_func(
+            shape=self.units
+        )
+
+        return iw_init, hw_init, hb_init
+
+    def __RNN_weights(self, *args):
+        """
+        """
+        iw_init, hw_init, hb_init = args[0]
+
+        iw = self.prior(
+            f'input_weights_{self.layer_name}',
+            shape=(self.shape_feat, self.units),
+            testval=iw_init,
+            **self.priors_kwargs
+        )
+        hw = self.prior(
+            f'hidden_weights_{self.layer_name}',
+            shape=(self.units, self.units),
+            testval=hw_init,
+            **self.priors_kwargs
+        )
+        hb = self.prior(
+            f'hidden_biases_{self.layer_name}',
+            shape=self.units,
+            testval=hb_init,
+            **self.priors_kwargs
+        )
+
+        return iw, hw, hb
+
+    def build(self, input_tensor):
+        """
+        """
+        hidden_state = pm.Normal(
+            'initial_hidden_state',
+            mu=0,
+            sigma=1,
+            shape=(self.shape_batch, self.units)
+        )
+        hidden_states = [hidden_state]
+
+        iw, hw, hb = self.__RNN_weights(
+            self.__RNN_init()
+        )
+
+        for step in range(self.shape_seq):
+
+            inp = pm.math.dot(input_tensor[:, step, :], iw)
+            h = pm.math.dot(hidden_states[step], hw)
+            a = hb + inp + h
+
+            hidden_state = pm.Deterministic(
+                f'{step}_hidden_state',
+                pm.math.tanh(
+                    a
+                )
+            )
+
+            hidden_states.append(hidden_state)
+
+        if self.return_sequences:
+            raise NotImplementedError
+        else:
+            return hidden_states[-1]
+
+
 class LSTM(_AbstractLayer):
     """
     """
