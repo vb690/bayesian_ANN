@@ -339,8 +339,6 @@ class LSTM(_AbstractLayer):
             cell_states.append(c)
 
         if self.return_sequences:
-            hidden_states = tt.concatenate(hidden_states, axis=-1)
-            cell_states = tt.concatenate(cell_states, axis=-1)
-            return hidden_states, cell_states
+            raise NotImplementedError
         else:
             return hidden_states[-1], cell_states[-1]
