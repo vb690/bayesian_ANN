@@ -140,9 +140,13 @@ class BayesianWordEmbedding(__AbstractNNet):
     """
     """
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
-                 vocabulary_size, embedding_size=50, layers=(100, 50, 25),
+                 vocabulary_size, mu=0, sigma=10, beta=5,
+                 embedding_size=50, layers=(100, 50, 25),
                  activation='tanh', weight_init_func='gaussian',
-                 bias_init_func='gaussian', batch_size=32, **priors_kwargs):
+                 bias_init_func='gaussian', batch_size=32, priors_dict={
+                    'mu': 0,
+                    'sigma': 10}
+                 ):
         self.layers = layers
         self.embedding_size = embedding_size
         self.vocabulary_size = vocabulary_size
@@ -151,16 +155,19 @@ class BayesianWordEmbedding(__AbstractNNet):
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
         self.batch_size = batch_size
+        self.mu = mu
         self.prior = prior
-        self.priors_kwargs = priors_kwargs
+        self.sigma = sigma
+        self.beta = beta
+        self.priors_dict = priors_dict
         self.__build_graph(
             X=X,
             y=y,
             likelyhood_model=likelyhood_model,
-            **self.priors_kwargs
+            **self.priors_dict
         )
 
-    def __build_graph(self, X, y, likelyhood_model, **priors_kwargs):
+    def __build_graph(self, X, y, likelyhood_model, **priors_dict):
         """
         """
         with pm.Model() as model:
@@ -194,8 +201,9 @@ class BayesianWordEmbedding(__AbstractNNet):
                 vocabulary_size=self.vocabulary_size,
                 units=self.embedding_size,
                 layer_name=0,
-                prior=self.prior,
-                **self.priors_kwargs
+                mu=self.mu,
+                sigma=self.sigma,
+                beta=self.beta
             )(self.X_data)
 
             embedding = pm.Deterministic(
@@ -217,7 +225,7 @@ class BayesianWordEmbedding(__AbstractNNet):
                     layer_name=layer_n,
                     prior=self.prior,
                     activation=self.activation,
-                    **self.priors_kwargs
+                    **self.priors_dict
                 )(dense)
 
             out = likelyhood_model(
@@ -227,7 +235,7 @@ class BayesianWordEmbedding(__AbstractNNet):
                 observed=self.y_data,
                 total_size=y.shape[0],
                 prior=self.prior,
-                **self.priors_kwargs
+                **self.priors_dict
             )
 
         setattr(self, 'model', model)

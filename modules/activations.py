@@ -40,6 +40,6 @@ class Activations:
         return pm.math.log(x)
 
     def exp(self, x):
-        """Wrapper on numpy exp function.
+        """Wrapper on pymc3 exp function.
         """
         return pm.exp(x)

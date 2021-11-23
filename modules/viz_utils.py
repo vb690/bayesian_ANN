@@ -136,13 +136,14 @@ def visulize_categorical_post(X, p, index, max_labels=10, figsize=(10, 4)):
     return None
 
 
-def visualize_embedding(embedding, y, **kwargs):
+def visualize_embedding(embedding, y, sampled_emb=25, **kwargs):
     """
     """
-    fig, axs = plt.subplots(5, 5, figsize=(15, 15))
+    rows = int(sampled_emb ** 0.5)
+    fig, axs = plt.subplots(rows, rows, figsize=(15, 15))
     sampled_embedding = np.random.choice(
                 [i for i in range(embedding.shape[0])],
-                25
+                sampled_emb
     )
     embeddings = [embedding[index, :, :] for index in sampled_embedding]
     relationships = [
