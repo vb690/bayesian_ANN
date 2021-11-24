@@ -31,8 +31,6 @@ from modules.layers import Dense
 
 def gaussian_lk(shape_in, input_tensor, out_shape, observed,
                 prior, beta=5, **priors_kwargs):
-  """
-  """
   with pm.Model() as lk_model:
 
       mu = Dense(
