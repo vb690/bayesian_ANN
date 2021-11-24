@@ -213,7 +213,7 @@ class RNN(_AbstractLayer):
         """
         hs_init, iw_init, hw_init, hb_init = args[0]
 
-        hs = pm.prior(
+        hs = self.prior(
             'initial_hidden_state',
             shape=(self.shape_batch, self.units),
             testval=hs_init,
@@ -264,6 +264,6 @@ class RNN(_AbstractLayer):
             hidden_states.append(hidden_state)
 
         if self.return_sequences:
-            raise NotImplementedError
+            return hidden_states
         else:
             return hidden_states[-1]

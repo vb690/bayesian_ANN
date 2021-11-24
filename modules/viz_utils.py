@@ -7,8 +7,10 @@ from sklearn.calibration import calibration_curve
 import umap
 import umap.aligned_umap
 
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+import seaborn as sns
 
 from .metrics_losses import prob_log_loss
 
@@ -162,7 +164,7 @@ def visualize_embedding(embedding, y, title, sampled_emb=25, **kwargs):
 
         for y_unique in np.unique(y):
 
-            y_idx = np.argwhere(y == y_unique)
+            y_idx = np.argwhere(y == y_unique).flatten()
             cmap = matplotlib.cm.get_cmap('tab10')
 
             ax.scatter(
@@ -184,5 +186,60 @@ def visualize_embedding(embedding, y, title, sampled_emb=25, **kwargs):
         bbox_to_anchor=(0.5, -0.12),
         ncol=5
     )
+    plt.show()
+    return None
+
+
+def visualize_kde_embedding(embedding, y, title, sampled_emb=25, **kwargs):
+    """
+    """
+    if isinstance(sampled_emb, int):
+        sampled_emb = np.random.choice(
+                    [i for i in range(embedding.shape[0])],
+                    sampled_emb
+        )
+    cmap = matplotlib.cm.get_cmap('tab10')
+    fig = plt.figure(figsize=(15, 15))
+
+    embeddings = [embedding[index, :, :] for index in sampled_emb]
+    relationships = [
+        {i: i for i in range(embedding.shape[1])}
+        for relationship in range(len(embeddings) - 1)
+    ]
+
+    reductions = umap.AlignedUMAP(**kwargs).fit_transform(
+        embeddings,
+        relations=relationships,
+        n_neighbours=embeddings[0].shape[1] // 4
+    )
+    for y_unique in np.unique(y):
+
+        y_red = []
+
+        for red, sample in zip(reductions, sampled_emb):
+
+            y_idx = np.argwhere(y == y_unique).flatten()
+            y_red.append(red[y_idx, :])
+
+        y_red = np.vstack(y_red)
+        sns.kdeplot(
+            x=y_red[:, 0],
+            y=y_red[:, 1],
+            fill=True,
+            color=cmap(y_unique),
+            alpha=0.5,
+            label=f'Digit {y_unique}'
+        )
+
+    custom_patches = [
+        Circle([0], [0], color=cmap(digit)) for digit in range(10)
+    ]
+
+    plt.title(title)
+    plt.legend(
+        custom_patches,
+        [f'Digit {digit}' for digit in range(10)]
+    )
+
     plt.show()
     return None
