@@ -5,7 +5,7 @@ Small project for exploring the usage of bayesian artificial neural networks imp
 
 ## Features
 
-1. PymC3 implementations of various Artificial Neural Networks layers "à la Keras":
+1. PyMC3 implementations of various Artificial Neural Networks layers "à la Keras":
 
     * Dense Layer
     * Embedding Layer **(currently not working)**
