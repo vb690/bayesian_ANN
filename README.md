@@ -8,15 +8,14 @@ Small project for exploring the usage of bayesian artificial neural networks imp
 1. PymC3 implementations of various Artificial Neural Networks layers "à la Keras":
 
     * Dense Layer
-    * Embedding Layer **(currently not working)**.
-    * Vanilla RNN Layer **(currently not working)**.
+    * Embedding Layer **(currently not working)**
+    * Vanilla RNN Layer **(currently not working)**
 
 2. Flexible pirors specification.
 3. Set of pre-implemented Artificial Neural Networks with flexible likelyhood specification:
     
     * Multilayer Perceptron
-    * Word Embedding **(currently not working)**.
-    * Time Series Regressor **(currently not working)**.
+    * Word Embedding **(currently not working)**
 
 ## Usage
 
