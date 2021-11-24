@@ -136,25 +136,29 @@ def visulize_categorical_post(X, p, index, max_labels=10, figsize=(10, 4)):
     return None
 
 
-def visualize_embedding(embedding, y, sampled_emb=25, **kwargs):
+def visualize_embedding(embedding, y, title, sampled_emb=25, **kwargs):
     """
     """
-    rows = int(sampled_emb ** 0.5)
+    if isinstance(sampled_emb, int):
+        sampled_emb = np.random.choice(
+                    [i for i in range(embedding.shape[0])],
+                    sampled_emb
+        )
+
+    rows = int(len(sampled_emb) ** 0.5)
     fig, axs = plt.subplots(rows, rows, figsize=(15, 15))
-    sampled_embedding = np.random.choice(
-                [i for i in range(embedding.shape[0])],
-                sampled_emb
-    )
-    embeddings = [embedding[index, :, :] for index in sampled_embedding]
+
+    embeddings = [embedding[index, :, :] for index in sampled_emb]
     relationships = [
         {i: i for i in range(embedding.shape[1])}
         for relationship in range(len(embeddings) - 1)
     ]
     reductions = umap.AlignedUMAP(**kwargs).fit_transform(
         embeddings,
-        relations=relationships
+        relations=relationships,
+        n_neighbours=embeddings[0].shape[1] // 4
     )
-    for red, ax, sample in zip(reductions, axs.flatten(), sampled_embedding):
+    for red, ax, sample in zip(reductions, axs.flatten(), sampled_emb):
 
         for y_unique in np.unique(y):
 
@@ -173,6 +177,7 @@ def visualize_embedding(embedding, y, sampled_emb=25, **kwargs):
         ax.set_title(f'Embedding Sample {sample}')
 
     plt.tight_layout()
+    fig.suptitle(title)
     fig.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.12)
     axs.flatten()[-3].legend(
         loc='upper center',
