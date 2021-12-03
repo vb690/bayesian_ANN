@@ -137,5 +137,6 @@ categorical_perceptron = BayesianMLP(
 
 1. Binary and multiclass classification.
 2. Regression with Normal and Stundent T likelyhoods.
-3. Sampling the embedding.
-4. Language Model.
+3. Autoencoder.
+4. Sampling the embedding.
+5. Language Model.
