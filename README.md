@@ -22,6 +22,7 @@ The aim of this project is to test the usage of PyMC3 library for creating a ser
 3. Set of pre-implemented Artificial Neural Networks with flexible likelyhood specification:
     
     * Multilayer Perceptron
+    * Autoencoder with undercomplete and denoising options
     * Word Embedding **(currently not working)**
 
 ## Usage
