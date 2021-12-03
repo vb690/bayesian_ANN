@@ -199,7 +199,7 @@ def visualize_kde_embedding(embedding, y, title, sampled_emb=25, **kwargs):
                     sampled_emb
         )
     cmap = matplotlib.cm.get_cmap('tab10')
-    fig = plt.figure(figsize=(15, 15))
+    fig = plt.figure(figsize=(10, 10))
 
     embeddings = [embedding[index, :, :] for index in sampled_emb]
     relationships = [
@@ -236,6 +236,8 @@ def visualize_kde_embedding(embedding, y, title, sampled_emb=25, **kwargs):
     ]
 
     plt.title(title)
+    plt.yticks([])
+    plt.xticks([])
     plt.legend(
         custom_patches,
         [f'Digit {digit}' for digit in range(10)]

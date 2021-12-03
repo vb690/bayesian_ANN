@@ -1,3 +1,5 @@
+import numpy as np
+
 import pymc3 as pm
 import theano
 
@@ -11,7 +13,7 @@ class __AbstractNNet(LikelyhoodModels):
     def __init__(self):
         pass
 
-    def fit(self, samples=1000, **kwargs):
+    def fit(self, samples=1000, approx=True, **kwargs):
         """
         """
         with self.model:
@@ -125,6 +127,119 @@ class BayesianMLP(__AbstractNNet):
 
             out = likelyhood_model(
                 shape_in=self.layers[-1],
+                input_tensor=dense,
+                out_shape=self.shape_out,
+                observed=self.y_data,
+                total_size=y.shape[0],
+                prior=self.prior,
+                **self.priors_kwargs
+            )
+
+        setattr(self, 'model', model)
+
+
+class BayesianAutoencoder(__AbstractNNet):
+    """
+    """
+    def __init__(self, X, likelyhood_model, prior,
+                 layers=(100, 50), latent_size=25, activation='tanh',
+                 weight_init_func='gaussian', bias_init_func='gussian',
+                 batch_size=32, denoising=True, noise_sigma=0.1,
+                 **priors_kwargs):
+        self.layers = layers
+        self.latent_size = latent_size
+        self.denoising = denoising
+        if denoising:
+            self.noise_sigma = noise_sigma
+        self.activation = activation
+        self.shape_out = X.shape[1]
+        self.weight_init_func = weight_init_func
+        self.bias_init_func = bias_init_func
+        self.batch_size = batch_size
+        self.prior = prior
+        self.priors_kwargs = priors_kwargs
+        self.__build_graph(
+            X=X,
+            likelyhood_model=likelyhood_model,
+            **priors_kwargs
+        )
+
+    def __build_graph(self, X, likelyhood_model, **priors_kwargs):
+        """
+        """
+        with pm.Model() as model:
+
+            setattr(
+                self,
+                'X_data',
+                theano.shared(X.astype(X.dtype))
+            )
+            setattr(
+                self,
+                'y_data',
+                theano.shared(X.astype(X.dtype))
+            )
+            if self.denoising:
+                y = X + np.random.normal(
+                    0,
+                    self.noise_sigma,
+                    size=X.shape
+                )
+            else:
+                y = X
+            setattr(
+                self,
+                'map_tensor_batch',
+                {
+                    self.X_data: pm.Minibatch(X, self.batch_size),
+                    self.y_data: pm.Minibatch(y, self.batch_size)
+                }
+            )
+
+            if isinstance(likelyhood_model, str):
+                likelyhood_model = getattr(
+                    self,
+                    likelyhood_model
+                )
+
+            dense = self.X_data
+            shape_in = X.shape[1]
+            for layer_n, units in enumerate(self.layers):
+
+                dense = Dense(
+                    shape_in=shape_in,
+                    units=units,
+                    layer_name=f'encoder_{layer_n}',
+                    prior=self.prior,
+                    activation=self.activation,
+                    **self.priors_kwargs
+                )(dense)
+                shape_in = units
+
+            dense = Dense(
+                shape_in=shape_in,
+                units=self.latent_size,
+                layer_name='latent',
+                prior=self.prior,
+                activation=self.activation,
+                **self.priors_kwargs
+            )(dense)
+            shape_in = self.latent_size
+
+            for layer_n, units in enumerate(self.layers[::-1]):
+
+                dense = Dense(
+                    shape_in=shape_in,
+                    units=units,
+                    layer_name=f'decoder_{layer_n}',
+                    prior=self.prior,
+                    activation=self.activation,
+                    **self.priors_kwargs
+                )(dense)
+                shape_in = units
+
+            out = likelyhood_model(
+                shape_in=units,
                 input_tensor=dense,
                 out_shape=self.shape_out,
                 observed=self.y_data,
