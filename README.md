@@ -8,7 +8,7 @@ Small project for exploring the usage of bayesian artificial neural networks imp
 
 ## Motivation
 
-The aim of this project is to test the usage of PyMC3 library for creating a series of Artificial Neural Netowrks within a bayesian framework. The project also tries to provide the skeleton of an API with some basic building blocks such as layers, activation functions and ikelyhood models for more easily implement different types of architectures.
+The aim of this project is to test the usage of PyMC3 library for creating a series of Artificial Neural Netowrks within a bayesian framework. The project also tries to provide the skeleton of an API with some basic building blocks such as layers, activation functions and likelyhood models for more easily implement different types of architectures.
 
 ## Features
 
