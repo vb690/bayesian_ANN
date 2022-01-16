@@ -1,6 +1,7 @@
 import numpy as np
 
 from scipy.stats import sem
+from scipy.stats import median_abs_deviation as mad
 
 from sklearn.calibration import calibration_curve
 
@@ -243,5 +244,63 @@ def visualize_kde_embedding(embedding, y, title, sampled_emb=25, **kwargs):
         [f'Digit {digit}' for digit in range(10)]
     )
 
+    plt.show()
+    return None
+
+
+def visualize_residuals(y_trace, y_gt, figsize=(10, 10)):
+    """
+    """
+    md_mae = round(np.median(abs(y_trace - y_gt)), 3)
+    mad_mae = round(mad(abs(y_trace - y_gt), axis=None), 3)
+
+    X = {
+        'ŷ': np.median(y_trace, axis=0),
+        'y': y_gt
+    }
+
+    fig, axs = plt.subplots(2, 1, figsize=figsize, sharey=True)
+
+    for ax_i, (label, x) in enumerate(X.items()):
+
+        axs[ax_i].scatter(
+            x,
+            np.median(y_trace - y_gt, axis=0),
+            s=10,
+            c='k'
+        )
+        axs[ax_i].errorbar(
+            x,
+            np.median(y_trace - y_gt, axis=0),
+            yerr=mad(y_trace - y_gt) * 1.96,
+            c='k',
+            linewidth=0.25,
+            ls='none'
+        )
+        axs[ax_i].errorbar(
+            x,
+            np.median(y_trace - y_gt, axis=0),
+            yerr=mad(y_trace - y_gt) * 1.645,
+            c='k',
+            linewidth=0.5,
+            ls='none'
+        )
+        axs[ax_i].axhline(
+            0,
+            linestyle=':',
+            c='r'
+        )
+        axs[ax_i].set_xlabel(
+            label
+        )
+
+        axs[ax_i].set_ylabel(
+            'Residuals'
+        )
+
+    plt.suptitle(
+        f'MAE: {md_mae} +/- {1.96 * mad_mae}'
+    )
+    plt.tight_layout()
     plt.show()
     return None
