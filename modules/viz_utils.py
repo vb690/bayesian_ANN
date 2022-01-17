@@ -248,7 +248,7 @@ def visualize_kde_embedding(embedding, y, title, sampled_emb=25, **kwargs):
     return None
 
 
-def visualize_residuals(y_trace, y_gt, figsize=(10, 10)):
+def visualize_residuals(y_trace, y_gt, figsize=(10, 15)):
     """
     """
     md_mae = round(np.median(abs(y_trace - y_gt)), 3)
@@ -259,7 +259,7 @@ def visualize_residuals(y_trace, y_gt, figsize=(10, 10)):
         'y': y_gt
     }
 
-    fig, axs = plt.subplots(2, 1, figsize=figsize, sharey=True)
+    fig, axs = plt.subplots(3, 1, figsize=figsize)
 
     for ax_i, (label, x) in enumerate(X.items()):
 
@@ -297,6 +297,38 @@ def visualize_residuals(y_trace, y_gt, figsize=(10, 10)):
         axs[ax_i].set_ylabel(
             'Residuals'
         )
+
+    axs[2].scatter(
+        y_gt,
+        np.median(y_trace, axis=0),
+        s=10,
+        c='k'
+    )
+    axs[2].line(
+        y_gt,
+        y_gt,
+        linestyle=':',
+        c='r'
+    )
+    axs[2].errorbar(
+        y_gt,
+        np.median(y_trace, axis=0),
+        yerr=mad(y_trace) * 1.96,
+        c='k',
+        linewidth=0.25,
+        ls='none'
+    )
+    axs[2].errorbar(
+        y_gt,
+        np.median(y_trace, axis=0),
+        yerr=mad(y_trace) * 1.645,
+        c='k',
+        linewidth=0.5,
+        ls='none'
+    )
+
+    axs[2].set_xlabel('y')
+    axs[2].set_ylabel('ŷ')
 
     plt.suptitle(
         f'MAE: {md_mae} +/- {1.96 * mad_mae}'
