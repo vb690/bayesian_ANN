@@ -304,10 +304,11 @@ def visualize_residuals(y_trace, y_gt, figsize=(10, 15)):
         s=10,
         c='k'
     )
-    axs[2].line(
+    axs[2].plot(
         y_gt,
         y_gt,
         linestyle=':',
+        linewidth=0.5,
         c='r'
     )
     axs[2].errorbar(
