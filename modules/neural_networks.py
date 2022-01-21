@@ -13,17 +13,21 @@ class __AbstractNNet(LikelyhoodModels):
     def __init__(self):
         pass
 
-    def fit(self, samples=1000, approx=True, **kwargs):
+    def fit(self, samples=1000, **kwargs):
         """
         """
         with self.model:
 
-            approx = pm.fit(
-                more_replacements=self.map_tensor_batch,
-                **kwargs
-            )
+            if self.advi_approx:
+                approx = pm.fit(
+                    more_replacements=self.map_tensor_batch,
+                    **kwargs
+                )
 
-        trace = approx.sample(samples)
+                trace = approx.sample(samples)
+            else:
+                trace = pm.sample(**kwargs)
+
         setattr(self, 'trace', trace)
         return None
 
@@ -63,11 +67,12 @@ class BayesianMLP(__AbstractNNet):
     """
     """
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
-                 layers=(100, 50, 25), activation='tanh',
+                 layers=(100, 50, 25), activation='tanh', advi_approx=False,
                  weight_init_func='gaussian', bias_init_func='gaussian',
                  batch_size=32, **priors_kwargs):
         self.layers = layers
         self.activation = activation
+        self.advi_approx = advi_approx
         self.shape_out = shape_out
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
@@ -96,14 +101,19 @@ class BayesianMLP(__AbstractNNet):
                 'y_data',
                 theano.shared(y.astype(y.dtype))
             )
-            setattr(
-                self,
-                'map_tensor_batch',
-                {
-                    self.X_data: pm.Minibatch(X, self.batch_size),
-                    self.y_data: pm.Minibatch(y, self.batch_size)
-                }
-            )
+
+            if self.advi_approx:
+                setattr(
+                    self,
+                    'map_tensor_batch',
+                    {
+                        self.X_data: pm.Minibatch(X, self.batch_size),
+                        self.y_data: pm.Minibatch(y, self.batch_size)
+                    }
+                )
+                total_size = y.shape[0]
+            else:
+                total_size = None
 
             if isinstance(likelyhood_model, str):
                 likelyhood_model = getattr(
@@ -130,7 +140,7 @@ class BayesianMLP(__AbstractNNet):
                 input_tensor=dense,
                 out_shape=self.shape_out,
                 observed=self.y_data,
-                total_size=y.shape[0],
+                total_size=total_size,
                 prior=self.prior,
                 **self.priors_kwargs
             )
