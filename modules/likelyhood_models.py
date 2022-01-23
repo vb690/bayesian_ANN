@@ -12,7 +12,7 @@ class LikelyhoodModels:
         pass
 
     def gaussian_lk(self, shape_in, input_tensor, out_shape, observed,
-                    total_size, prior, beta=5, **priors_kwargs):
+                    total_size, prior, beta=1, **priors_kwargs):
         """
         """
         with pm.Model() as lk_model:
@@ -42,7 +42,7 @@ class LikelyhoodModels:
         return lk_model
 
     def student_lk(self, shape_in, input_tensor, out_shape, observed,
-                   total_size, prior, beta_cauchy=5, alpha_gamma=2,
+                   total_size, prior, beta_cauchy=1, alpha_gamma=2,
                    beta_gamma=0.1, **priors_kwargs):
         """
         """

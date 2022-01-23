@@ -13,6 +13,56 @@ class __AbstractNNet(LikelyhoodModels):
     def __init__(self):
         pass
 
+    def init_graph(self, X, y, likelyhood_model, advi_approx):
+        """
+        """
+        if advi_approx:
+            setattr(
+                self,
+                'X_data',
+                theano.shared(X.astype(X.dtype))
+            )
+            setattr(
+                self,
+                'y_data',
+                theano.shared(y.astype(y.dtype))
+            )
+            setattr(
+                self,
+                'map_tensor_batch',
+                {
+                    self.X_data: pm.Minibatch(X, self.batch_size),
+                    self.y_data: pm.Minibatch(y, self.batch_size)
+                }
+            )
+            total_size = y.shape[0]
+        else:
+            setattr(
+                self,
+                'X_data',
+                pm.Data(
+                    'X_data',
+                    X
+                )
+            )
+            setattr(
+                self,
+                'y_data',
+                pm.Data(
+                    'y_data',
+                    y
+                )
+            )
+            total_size = None
+
+        if isinstance(likelyhood_model, str):
+            likelyhood_model = getattr(
+                self,
+                likelyhood_model
+            )
+
+        return total_size, likelyhood_model
+
     def fit(self, samples=1000, **kwargs):
         """
         """
@@ -60,7 +110,7 @@ class __AbstractNNet(LikelyhoodModels):
         """
         """
         print(self.model.check_test_point())
-        return pm.model_to_graphviz(self.model)
+        return self.show_graph()
 
 
 class BayesianMLP(__AbstractNNet):
@@ -91,35 +141,12 @@ class BayesianMLP(__AbstractNNet):
         """
         with pm.Model() as model:
 
-            setattr(
-                self,
-                'X_data',
-                theano.shared(X.astype(X.dtype))
+            total_size, likelyhood_model = self.init_graph(
+                X=X,
+                y=y,
+                likelyhood_model=likelyhood_model,
+                advi_approx=self.advi_approx
             )
-            setattr(
-                self,
-                'y_data',
-                theano.shared(y.astype(y.dtype))
-            )
-
-            if self.advi_approx:
-                setattr(
-                    self,
-                    'map_tensor_batch',
-                    {
-                        self.X_data: pm.Minibatch(X, self.batch_size),
-                        self.y_data: pm.Minibatch(y, self.batch_size)
-                    }
-                )
-                total_size = y.shape[0]
-            else:
-                total_size = None
-
-            if isinstance(likelyhood_model, str):
-                likelyhood_model = getattr(
-                    self,
-                    likelyhood_model
-                )
 
             dense = self.X_data
             shape_in = X.shape[1]
@@ -297,30 +324,12 @@ class BayesianWordEmbedding(__AbstractNNet):
         """
         with pm.Model() as model:
 
-            setattr(
-                self,
-                'X_data',
-                theano.shared(X.astype(X.dtype))
+            total_size, likelyhood_model = self.init_graph(
+                X=X,
+                y=y,
+                likelyhood_model=likelyhood_model,
+                advi_approx=self.advi_approx
             )
-            setattr(
-                self,
-                'y_data',
-                theano.shared(y.astype(y.dtype))
-            )
-            setattr(
-                self,
-                'map_tensor_batch',
-                {
-                    self.X_data: pm.Minibatch(X, self.batch_size),
-                    self.y_data: pm.Minibatch(y, self.batch_size)
-                }
-            )
-
-            if isinstance(likelyhood_model, str):
-                likelyhood_model = getattr(
-                    self,
-                    likelyhood_model
-                )
 
             embedding = Embedding(
                 vocabulary_size=self.vocabulary_size,
