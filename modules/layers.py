@@ -12,7 +12,7 @@ class _AbstractLayer(ABC, Initializations, Activations):
     """
     """
     def __init__(self):
-        pass
+        Initializations.__init__()
 
     def __call__(self, input_tensor):
         """

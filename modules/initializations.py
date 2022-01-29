@@ -4,12 +4,23 @@ import numpy as np
 class Initializations:
     """
     """
-    def __init__(self):
-        pass
+    def __init__(self,
+                 uniform_init_para={"low": -1, "high": 1},
+                 gaussian_init_para={"mu": 0, "sigma": 1},
+                 laplace_init_para={"mu": 0, "beta": 1}
+                 ):
+        self.uniform_init_para = uniform_init_para
+        self.gaussian_init_para = gaussian_init_para
+        self.laplace_init_para = laplace_init_para
 
-    def uniform(self, shape, low=-1, high=1):
+    def uniform(self, shape, low=None, high=None):
         """
         """
+        if low is None:
+            low = self.uniform['low']
+        if high is None:
+            high = self.uniform['high']
+
         init = np.random.uniform(
             low=low,
             high=high,
@@ -28,6 +39,11 @@ class Initializations:
     def gaussian(self, shape, mu=0, sigma=1):
         """
         """
+        if mu is None:
+            mu = self.uniform['mu']
+        if sigma is None:
+            sigma = self.uniform['sigma']
+
         init = np.random.normal(
             loc=mu,
             scale=sigma,
@@ -53,9 +69,13 @@ class Initializations:
         )
         return init
 
-    def laplace(self, shape, mu, beta):
+    def laplace(self, shape, mu=None, beta=None):
         """
         """
+        if mu is None:
+            mu = self.uniform['mu']
+        if beta is None:
+            beta = self.uniform['beta']
         init = np.random.laplace(
             loc=mu,
             scale=beta,

@@ -181,7 +181,8 @@ class BayesianAutoencoder(__AbstractNNet):
     def __init__(self, X, likelyhood_model, prior,
                  layers=(100, 50), latent_size=25, activation='tanh',
                  weight_init_func='gaussian', bias_init_func='gussian',
-                 batch_size=32, denoising=True, noise_sigma=0.1,
+                 advi_approx=False, batch_size=32, denoising=True,
+                 noise_sigma=1,
                  **priors_kwargs):
         self.layers = layers
         self.latent_size = latent_size
@@ -189,6 +190,7 @@ class BayesianAutoencoder(__AbstractNNet):
         if denoising:
             self.noise_sigma = noise_sigma
         self.activation = activation
+        self.advi_approx = advi_approx
         self.shape_out = X.shape[1]
         self.weight_init_func = weight_init_func
         self.bias_init_func = bias_init_func
@@ -204,40 +206,23 @@ class BayesianAutoencoder(__AbstractNNet):
     def __build_graph(self, X, likelyhood_model, **priors_kwargs):
         """
         """
+        if self.denoising:
+            y = X.copy() + np.random.normal(
+                0,
+                self.noise_sigma,
+                size=X.shape
+            )
+        else:
+            y = X.copy()
+
         with pm.Model() as model:
 
-            setattr(
-                self,
-                'X_data',
-                theano.shared(X.astype(X.dtype))
+            total_size, likelyhood_model = self.init_graph(
+                X=X,
+                y=y,
+                likelyhood_model=likelyhood_model,
+                advi_approx=self.advi_approx
             )
-            setattr(
-                self,
-                'y_data',
-                theano.shared(X.astype(X.dtype))
-            )
-            if self.denoising:
-                y = X + np.random.normal(
-                    0,
-                    self.noise_sigma,
-                    size=X.shape
-                )
-            else:
-                y = X
-            setattr(
-                self,
-                'map_tensor_batch',
-                {
-                    self.X_data: pm.Minibatch(X, self.batch_size),
-                    self.y_data: pm.Minibatch(y, self.batch_size)
-                }
-            )
-
-            if isinstance(likelyhood_model, str):
-                likelyhood_model = getattr(
-                    self,
-                    likelyhood_model
-                )
 
             dense = self.X_data
             shape_in = X.shape[1]
