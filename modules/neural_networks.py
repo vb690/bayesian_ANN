@@ -117,7 +117,7 @@ class BayesianMLP(__AbstractNNet):
     """
     """
     def __init__(self, X, y, shape_out, likelyhood_model, prior,
-                 layers=(100, 50, 25), activation='tanh', advi_approx=False,
+                 layers=(100, ), activation='tanh', advi_approx=False,
                  weight_init_func='gaussian', bias_init_func='gaussian',
                  batch_size=32, **priors_kwargs):
         self.layers = layers
