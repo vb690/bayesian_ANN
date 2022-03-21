@@ -12,7 +12,7 @@ class _AbstractLayer(ABC, Initializations, Activations):
     """
     """
     def __init__(self):
-        Initializations.__init__()
+        super(Initializations, self).__init__()
 
     def __call__(self, input_tensor):
         """
@@ -48,11 +48,9 @@ class Dense(_AbstractLayer):
         """
         """
         floatX = theano.config.floatX
-
         weights_init = self.weight_init_func(
             shape=self.shape
         ).astype(floatX)
-
         biases_init = self.bias_init_func(
             shape=self.units
         )
@@ -121,7 +119,18 @@ class Embedding(_AbstractLayer):
         return weights_init
 
     def __embedding_weights(self):
-        """
+        """We construnct an embedding layer as a lookup table
+        ----------------------
+        | Cat Index |   W    |
+        ----------------------
+        |     0     | [.....]|
+        |     1     | [.....]|
+        |     2     | [.....]|
+        |     3     | [.....]|
+
+        each W comes from a hierarchical structure.The template we followed
+        is from this blogpost
+        https://twiecki.io/blog/2018/08/13/hierarchical_bayesian_neural_network
         """
         floatX = theano.config.floatX
 
@@ -149,7 +158,7 @@ class Embedding(_AbstractLayer):
         )
         weights = pm.Deterministic(
             f'embedding_weights_{self.layer_name}',
-            mu_weights + weights_offset * sigma_weights
+            weights_offset * sigma_weights + mu_weights
         )
         return weights
 
@@ -164,106 +173,3 @@ class Embedding(_AbstractLayer):
             )[input_tensor]
         )
         return output_tensor
-
-
-class RNN(_AbstractLayer):
-    """
-    """
-    def __init__(self, shapes, units, layer_name, prior,
-                 return_sequences=False, weight_init_func='gaussian',
-                 bias_init_func='gaussian', **priors_kwargs):
-        """
-        """
-        self.units = units
-        self.return_sequences = return_sequences
-
-        # ugly shpe specification
-        self.shape_batch = shapes[0]
-        self.shape_seq = shapes[1]
-        self.shape_feat = shapes[2]
-
-        self.layer_name = layer_name
-        self.weight_init_func = getattr(self, weight_init_func)
-        self.bias_init_func = getattr(self, bias_init_func)
-        self.prior = prior
-        self.priors_kwargs = priors_kwargs
-
-    def __RNN_init(self):
-        """
-        """
-        floatX = theano.config.floatX
-
-        hs_init = self.weight_init_func(
-            shape=(self.shape_batch, self.units)
-        ).astype(floatX)
-        iw_init = self.weight_init_func(
-            shape=(self.shape_feat, self.units)
-        ).astype(floatX)
-        hw_init = self.weight_init_func(
-            shape=(self.units, self.units)
-        ).astype(floatX)
-        hb_init = self.bias_init_func(
-            shape=self.units
-        )
-
-        return hs_init, iw_init, hw_init, hb_init
-
-    def __RNN_weights(self, *args):
-        """
-        """
-        hs_init, iw_init, hw_init, hb_init = args[0]
-
-        hs = self.prior(
-            'initial_hidden_state',
-            shape=(self.shape_batch, self.units),
-            testval=hs_init,
-            **self.priors_kwargs
-        )
-        iw = self.prior(
-            f'input_weights_{self.layer_name}',
-            shape=(self.shape_feat, self.units),
-            testval=iw_init,
-            **self.priors_kwargs
-        )
-        hw = self.prior(
-            f'hidden_weights_{self.layer_name}',
-            shape=(self.units, self.units),
-            testval=hw_init,
-            **self.priors_kwargs
-        )
-        hb = self.prior(
-            f'hidden_biases_{self.layer_name}',
-            shape=self.units,
-            testval=hb_init,
-            **self.priors_kwargs
-        )
-
-        return hs, iw, hw, hb
-
-    def build(self, input_tensor):
-        """
-        """
-        hs, iw, hw, hb = self.__RNN_weights(
-            self.__RNN_init()
-        )
-        hidden_states = [hs]
-
-        for step in range(self.shape_seq):
-
-            inp = pm.math.dot(input_tensor[:, step, :], iw)
-            h = pm.math.dot(hidden_states[step], hw)
-            a = hb + inp + h
-
-            hidden_state = pm.Deterministic(
-                f'{step}_hidden_state',
-                pm.math.tanh(
-                    a
-                )
-            )
-
-            hidden_states.append(hidden_state)
-
-        if self.return_sequences:
-            return hidden_states
-        else:
-            return hidden_states[-1]
